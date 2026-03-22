@@ -19,6 +19,8 @@ inject_chrome(active="analyse")
 # ── Analyse-page-specific styles ──────────────────────────────────────────────
 st.markdown("""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+
 .demo-card {
   border: 1px solid #ececec; border-radius: 2px; padding: 1rem;
   margin-bottom: 0.75rem; background: #fff;
@@ -52,6 +54,74 @@ st.markdown("""
   font-size: 0.65rem; font-weight: 600; letter-spacing: 0.12em;
   text-transform: uppercase; color: #787878; margin-bottom: 0.5rem;
 }
+
+/* ─── Preference selector section ────────────────────────────────────────── */
+.pref-section {
+  margin: 2rem 0 1.5rem; padding: 2rem 2rem 1.5rem;
+  background: #f9f8f6; border-radius: 8px;
+  border: 1px solid #eeebe6;
+}
+.pref-section-eyebrow {
+  font-size: 0.65rem; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: #787878; margin-bottom: 0.6rem;
+}
+.pref-section-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.3rem; font-weight: 700; color: #1a1a1a; margin-bottom: 0.5rem;
+}
+.pref-section-sub {
+  font-size: 0.875rem; color: #555; line-height: 1.6; margin-bottom: 0;
+}
+
+/* ─── Blurred proposal ────────────────────────────────────────────────────── */
+.proposal-blurred {
+  filter: blur(6px);
+  user-select: none;
+  pointer-events: none;
+  transition: filter 0.6s ease;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.proposal-visible {
+  filter: none;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.proposal-content {
+  background: #fff; border: 1px solid #e8e4de; border-radius: 6px;
+  padding: 2rem 2.5rem;
+}
+.proposal-heading {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.2rem; font-weight: 700; color: #1a1a1a; margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem; border-bottom: 2px solid #460f28;
+}
+.proposal-alloc-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin: 1.25rem 0;
+}
+.proposal-alloc-cell {
+  background: #f5f3f0; border-radius: 6px; padding: 1rem 0.75rem; text-align: center;
+}
+.proposal-alloc-pct {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.5rem; font-weight: 700; color: #460f28; margin-bottom: 0.2rem;
+}
+.proposal-alloc-label { font-size: 0.7rem; color: #666; text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* ─── Unlock card ─────────────────────────────────────────────────────────── */
+.unlock-card {
+  background: #1a1a1a; color: #fff; padding: 2.5rem 2rem;
+  border-radius: 8px; margin-top: 1.5rem; text-align: center;
+}
+.unlock-icon { font-size: 2rem; margin-bottom: 0.75rem; }
+.unlock-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.25rem; font-weight: 700; color: #fff;
+  margin-bottom: 0.5rem; line-height: 1.3;
+}
+.unlock-sub {
+  font-size: 0.875rem; color: rgba(255,255,255,0.65); line-height: 1.6; margin-bottom: 0;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -65,6 +135,11 @@ _defaults = {
     "email": "",
     "lead_captured": False,
     "source": None,
+    # New: preference + proposal flow
+    "investment_prefs": None,
+    "prefs_submitted": False,
+    "proposal": "",
+    "proposal_unlocked": False,
 }
 for k, v in _defaults.items():
     if k not in st.session_state:
@@ -109,33 +184,6 @@ with col_main:
             'Ihr Screenshot verlässt nicht Ihren Browser. Analyse läuft über verschlüsselte API-Verbindung.</p>',
             unsafe_allow_html=True,
         )
-
-        st.markdown("---")
-
-        # Demo personas
-        st.markdown("""
-        <div class="liqid-section-label">Demo-Portfolios</div>
-        <div class="liqid-section-title" style="margin-bottom:0.25rem">Oder wählen Sie ein Beispielprofil</div>
-        <p class="liqid-section-sub">
-          Drei typische DACH-Anleger — unterschiedliche Vermögenstiers, unterschiedliche Gaps.
-        </p>
-        """, unsafe_allow_html=True)
-
-        demo_cols = st.columns(3)
-        for i, (name, data) in enumerate(DEMO_PERSONAS.items()):
-            with demo_cols[i]:
-                st.markdown(f"""
-                <div class="demo-card">
-                  <div class="demo-card-eyebrow">Demo · {data["wealth_tier"]}</div>
-                  <div class="demo-card-name">{name}</div>
-                  <div class="demo-card-sub">{data["subtitle"]}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                if st.button("Analysieren →", key=f"demo_{name}", use_container_width=True):
-                    st.session_state.portfolio = data
-                    st.session_state.source = "demo"
-                    st.session_state.analyzed = True
-                    st.rerun()
 
         # Process upload
         if uploaded:
@@ -219,14 +267,18 @@ Holdings müssen sich zu 100 addieren. Fehlende Kategorien → 0."""
                     st.rerun()
 
                 except anthropic.AuthenticationError:
-                    st.error("API-Key fehlt oder ungültig. Bitte in `.streamlit/secrets.toml` konfigurieren.")
+                    st.error("API-Key ungültig.")
+                except anthropic.APIStatusError as e:
+                    st.warning(f"API vorübergehend nicht erreichbar ({e.status_code}). Bitte erneut versuchen.")
+                except anthropic.APIConnectionError:
+                    st.warning("Keine Verbindung zur API. Bitte Internetverbindung prüfen und erneut versuchen.")
                 except json.JSONDecodeError:
                     st.error(
                         "Das Portfolio konnte nicht automatisch eingelesen werden. "
                         "Bitte versuchen Sie einen klareren Screenshot oder wählen Sie ein Demo-Portfolio."
                     )
                 except Exception as e:
-                    st.error(f"Fehler bei der Analyse: {e}")
+                    st.warning(f"Vorübergehender Fehler. Bitte erneut versuchen. ({type(e).__name__})")
 
     # ── PHASE 2: Results ───────────────────────────────────────────────────────
     else:
@@ -311,8 +363,10 @@ Holdings müssen sich zu 100 addieren. Fehlende Kategorien → 0."""
                 st.session_state.narrative = full_text
             except anthropic.AuthenticationError:
                 st.error("API-Key ungültig.")
+            except (anthropic.APIStatusError, anthropic.APIConnectionError):
+                st.warning("API vorübergehend nicht erreichbar. Bitte kurz warten und **Analyse starten** erneut drücken.")
             except Exception as e:
-                st.error(f"Fehler: {e}")
+                st.warning(f"Vorübergehender Fehler ({type(e).__name__}). Bitte erneut versuchen.")
 
         if st.session_state.narrative:
             st.markdown(f"""
@@ -324,70 +378,187 @@ Holdings müssen sich zu 100 addieren. Fehlende Kategorien → 0."""
 
             st.markdown("---")
 
-            # Forked CTA (user never sees the routing decision)
-            if not st.session_state.lead_captured:
-                cta = st.session_state.cta_path
+            # ── PHASE 3: Investment Preferences → Blurred Proposal ─────────────
+            if not st.session_state.prefs_submitted:
+                st.markdown("""
+                <div class="pref-section">
+                  <div class="pref-section-eyebrow">Schritt 2 von 3</div>
+                  <div class="pref-section-title">Ihre Anlagestrategie</div>
+                  <p class="pref-section-sub">
+                    Teilen Sie uns Ihre Präferenzen mit — wir generieren einen
+                    auf Sie zugeschnittenen LIQID-Portfoliovorschlag.
+                  </p>
+                </div>
+                """, unsafe_allow_html=True)
 
-                if cta == "rm":
-                    st.markdown("""
-                    <div class="liqid-lead-card rm-path">
-                      <div class="liqid-rm-badge">Private Markets Zugang</div>
-                      <div class="liqid-lead-title">Ihr Portfolio qualifiziert für institutionelle Investmentstrategien</div>
-                      <div class="liqid-lead-sub">
-                        Basierend auf Ihrer Allokation sehen wir konkrete Optimierungspotenziale —
-                        insbesondere im Bereich Private Equity und alternative Anlageklassen.
-                        Ein Senior Advisor zeigt Ihnen, was Investoren Ihrer Größenordnung heute anders machen.
-                      </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    with st.form("rm_form"):
-                        fc1, fc2 = st.columns(2)
-                        with fc1:
-                            name_in = st.text_input("Ihr Name", placeholder="Dr. Max Mustermann")
-                        with fc2:
-                            email_in = st.text_input("E-Mail", placeholder="max@example.com")
-                        phone_in = st.text_input("Telefon (optional)", placeholder="+49 30 …")
-                        if st.form_submit_button("Beratungsgespräch vereinbaren", type="primary", use_container_width=True):
-                            if "@" in email_in and "." in email_in:
-                                st.session_state.email = email_in
-                                st.session_state.lead_captured = True
-                                st.rerun()
-                            else:
-                                st.warning("Bitte geben Sie eine gültige E-Mail-Adresse ein.")
-                    st.caption("Ein Senior LIQID Advisor meldet sich innerhalb von 1 Werktag persönlich.")
+                zeithorizont = st.pills(
+                    "Zeithorizont",
+                    options=["< 3 Jahre", "3–7 Jahre", "7+ Jahre"],
+                    selection_mode="single",
+                    key="pref_zeithorizont",
+                )
+                risikobereitschaft = st.pills(
+                    "Risikobereitschaft",
+                    options=["Sicherheitsorientiert", "Ausgewogen", "Renditestark"],
+                    selection_mode="single",
+                    key="pref_risiko",
+                )
+                liquiditaet = st.pills(
+                    "Liquiditätsbedarf",
+                    options=["Hohe Liquidität", "Flexibel", "Langfristig bindbar"],
+                    selection_mode="single",
+                    key="pref_liquiditaet",
+                )
 
-                else:
-                    st.markdown("""
-                    <div class="liqid-lead-card">
-                      <div class="liqid-lead-title">Vollständigen Portfolio-Report erhalten</div>
-                      <div class="liqid-lead-sub">
-                        Ihre detaillierte Analyse inklusive Benchmark-Vergleich und
-                        Optimierungsszenarien — direkt in Ihr Postfach.
-                      </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    with st.form("nurture_form"):
-                        email_in = st.text_input("Ihre E-Mail-Adresse", placeholder="name@example.com")
-                        if st.form_submit_button("Report anfordern", type="primary", use_container_width=True):
-                            if "@" in email_in and "." in email_in:
-                                st.session_state.email = email_in
-                                st.session_state.lead_captured = True
-                                st.rerun()
-                            else:
-                                st.warning("Bitte geben Sie eine gültige E-Mail-Adresse ein.")
-                    st.caption("Automatischer Versand innerhalb von 2 Minuten. Kein Verkaufsgespräch.")
+                all_selected = all([zeithorizont, risikobereitschaft, liquiditaet])
+
+                if st.button(
+                    "Meine Strategie generieren →",
+                    type="primary",
+                    disabled=not all_selected,
+                    use_container_width=True,
+                ):
+                    st.session_state.investment_prefs = {
+                        "zeithorizont": zeithorizont,
+                        "risiko": risikobereitschaft,
+                        "liquiditaet": liquiditaet,
+                    }
+                    st.session_state.prefs_submitted = True
+                    st.rerun()
+
+                if not all_selected:
+                    st.caption("Bitte alle drei Felder auswählen, um Ihre Strategie zu generieren.")
 
             else:
-                if st.session_state.cta_path == "rm":
-                    st.success(
-                        f"**Beratungstermin angefragt.** Ein Senior LIQID Advisor meldet sich innerhalb "
-                        f"von 1 Werktag persönlich unter **{st.session_state.email}**."
-                    )
-                else:
-                    st.success(
-                        f"**Report wird zugestellt.** Ihre Analyse wurde an **{st.session_state.email}** gesendet."
-                    )
-                st.balloons()
+                # ── Generate proposal if not yet done ─────────────────────────
+                if not st.session_state.proposal:
+                    prefs = st.session_state.investment_prefs or {}
+                    holdings = portfolio.get("holdings", {})
+                    wt = portfolio.get("wealth_tier", "EMERGING_HNW")
+                    risk = portfolio.get("risk_inferred", "Balanced")
+                    val = format_value(portfolio.get("estimated_value", 0))
+
+                    proposal_prompt = f"""Du bist ein Senior Wealth Advisor bei LIQID, Deutschlands führender digitaler Vermögensverwaltung.
+
+Erstelle einen personalisierten Portfoliovorschlag auf Deutsch basierend auf folgenden Daten:
+
+AKTUELLES PORTFOLIO:
+- Gesamtwert: {val}
+- Vermögenstier: {wt}
+- Aktuelle Allokation: {json.dumps(holdings, ensure_ascii=False)}
+- Risikoprofil: {risk}
+
+ANLAGEINTERESSEN DES KUNDEN:
+- Zeithorizont: {prefs.get("zeithorizont", "—")}
+- Risikobereitschaft: {prefs.get("risiko", "—")}
+- Liquiditätsbedarf: {prefs.get("liquiditaet", "—")}
+
+Schreibe einen strukturierten Vorschlag mit diesen 4 Abschnitten:
+
+**LIQID-Strategie: [passender Strategiename]**
+
+**Vorgeschlagene Zielallokation:**
+Nenne konkrete Prozentzahlen für Aktien, Anleihen, Alternatives, Liquidität (zusammen 100%).
+
+**Warum diese Strategie für Sie:**
+2–3 Sätze, die erklären, warum diese Allokation zu den Präferenzen passt. Sprich die Person direkt an (Sie-Form). Hebe den Alternatives-Vorteil hervor (LIQID hat Zugang zu Private Equity, Private Credit, Infrastructure, die Retail-Investoren normalerweise nicht zugänglich sind).
+
+**Erwartete Auswirkungen:**
+Vergleich zur aktuellen Allokation — was verbessert sich konkret? Nenne erwartete Renditebereich (z.B. 6–9% p.a.) und Risikoreduktion falls relevant.
+
+**Nächste Schritte mit LIQID:**
+1 kurzer Abschnitt mit 2 konkreten nächsten Schritten (Discovery Call + Strategie-Setup).
+
+Schreibe professionell, präzise, auf dem Niveau einer Privatbank. Keine Floskeln. Kein Disclaimer."""
+
+                    try:
+                        proposal_ph = st.empty()
+                        full_proposal = ""
+                        with get_client().messages.stream(
+                            model="claude-sonnet-4-6",
+                            max_tokens=800,
+                            messages=[{"role": "user", "content": proposal_prompt}],
+                        ) as stream:
+                            for text in stream.text_stream:
+                                full_proposal += text
+                                proposal_ph.markdown(
+                                    f'<div class="stream-preview">{full_proposal}▌</div>',
+                                    unsafe_allow_html=True,
+                                )
+                        proposal_ph.empty()
+                        st.session_state.proposal = full_proposal
+                        st.rerun()
+                    except anthropic.AuthenticationError:
+                        st.error("API-Key ungültig.")
+                    except (anthropic.APIStatusError, anthropic.APIConnectionError):
+                        st.warning("API vorübergehend nicht erreichbar. Bitte erneut versuchen.")
+                    except Exception as e:
+                        st.warning(f"Vorübergehender Fehler ({type(e).__name__}). Bitte erneut versuchen.")
+
+                # ── Show proposal (blurred or revealed) ───────────────────────
+                if st.session_state.proposal:
+                    blur_class = "proposal-visible" if st.session_state.proposal_unlocked else "proposal-blurred"
+
+                    st.markdown(f"""
+                    <div class="{blur_class}">
+                      <div class="proposal-content">
+                        <div class="proposal-heading">Ihr persönlicher LIQID-Portfoliovorschlag</div>
+                        {st.session_state.proposal.replace(chr(10), "<br>")}
+                      </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    if not st.session_state.proposal_unlocked:
+                        # Unlock card
+                        st.markdown("""
+                        <div class="unlock-card">
+                          <div class="unlock-icon">🔒</div>
+                          <div class="unlock-title">Ihr Vorschlag ist bereit</div>
+                          <p class="unlock-sub">
+                            Hinterlassen Sie Ihre Kontaktdaten, um den vollständigen
+                            Portfoliovorschlag zu erhalten — und optional ein Erstgespräch
+                            mit einem LIQID Senior Advisor zu vereinbaren.
+                          </p>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        with st.form("unlock_form"):
+                            uc1, uc2 = st.columns(2)
+                            with uc1:
+                                unlock_name = st.text_input("Ihr Name *", placeholder="Dr. Max Mustermann")
+                            with uc2:
+                                unlock_email = st.text_input("E-Mail-Adresse *", placeholder="name@example.com")
+                            unlock_phone = st.text_input("Telefon (optional)", placeholder="+49 30 …")
+                            submitted = st.form_submit_button(
+                                "Vorschlag freischalten →",
+                                type="primary",
+                                use_container_width=True,
+                            )
+                            if submitted:
+                                if "@" in unlock_email and "." in unlock_email:
+                                    st.session_state.email = unlock_email
+                                    st.session_state.lead_captured = True
+                                    st.session_state.proposal_unlocked = True
+                                    st.rerun()
+                                else:
+                                    st.warning("Bitte geben Sie eine gültige E-Mail-Adresse ein.")
+
+                        st.caption("Kein Spam, kein Verkaufsdruck. Ihr Vorschlag wird sofort freigeschaltet.")
+
+                    else:
+                        cta = st.session_state.cta_path
+                        if cta == "rm":
+                            st.success(
+                                f"**Vorschlag freigeschaltet.** Ein Senior LIQID Advisor meldet sich "
+                                f"innerhalb von 1 Werktag unter **{st.session_state.email}**."
+                            )
+                        else:
+                            st.success(
+                                f"**Vorschlag freigeschaltet.** Ihre vollständige Analyse wurde an "
+                                f"**{st.session_state.email}** gesendet."
+                            )
+                        st.balloons()
 
         st.markdown("---")
         if st.button("← Neues Portfolio analysieren"):
@@ -451,8 +622,18 @@ with col_funnel:
             st.markdown('<div style="font-size:0.65rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#787878;margin-bottom:0.75rem">Pipeline</div>', unsafe_allow_html=True)
             st.metric("Extraktion", "✓")
             st.metric("Narrative", "✓ Streaming")
+            st.metric("Präferenzen", "✓" if st.session_state.prefs_submitted else "○ Ausstehend")
+            st.metric("Vorschlag", "✓ Generiert" if st.session_state.proposal else "○ Ausstehend")
             lead_status = "✓ Konvertiert" if st.session_state.lead_captured else "○ Ausstehend"
             st.metric("Lead", lead_status, delta="Lead captured" if st.session_state.lead_captured else None)
+
+            if st.session_state.investment_prefs:
+                st.markdown("---")
+                prefs = st.session_state.investment_prefs
+                st.caption("**Anlageinteressen**")
+                st.caption(f"⏱ {prefs.get('zeithorizont','—')}")
+                st.caption(f"⚡ {prefs.get('risiko','—')}")
+                st.caption(f"💧 {prefs.get('liquiditaet','—')}")
 
             gap_df = st.session_state.gap_df
             if gap_df is not None:

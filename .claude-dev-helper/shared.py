@@ -4,6 +4,7 @@ Shared CSS, data, and helpers — imported by home.py and analyse.py
 import streamlit as st
 import anthropic
 import pandas as pd
+import pathlib
 
 
 # ── Shared CSS injection ──────────────────────────────────────────────────────
@@ -345,10 +346,23 @@ def format_value(val: int) -> str:
     return f"€{val / 1_000:.0f}K"
 
 
-_API_KEY = "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"
-
 def get_client() -> anthropic.Anthropic:
-    return anthropic.Anthropic(api_key=_API_KEY)
+    # Primary: st.secrets (works when Streamlit loads secrets.toml correctly)
+    try:
+        key = st.secrets["ANTHROPIC_API_KEY"]
+        if key:
+            return anthropic.Anthropic(api_key=key)
+    except Exception:
+        pass
+    # Fallback: read secrets.toml directly from project root
+    import os, re
+    for base in [os.getcwd(), pathlib.Path(__file__).parent.parent]:
+        toml = pathlib.Path(base) / ".streamlit" / "secrets.toml"
+        if toml.exists():
+            m = re.search(r'ANTHROPIC_API_KEY\s*=\s*["\']([^"\']+)["\']', toml.read_text())
+            if m:
+                return anthropic.Anthropic(api_key=m.group(1))
+    raise RuntimeError("ANTHROPIC_API_KEY nicht gefunden. Bitte in .streamlit/secrets.toml eintragen.")
 
 
 def build_narrative_prompt(portfolio: dict, gap_df: pd.DataFrame) -> str:
