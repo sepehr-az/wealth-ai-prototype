@@ -119,11 +119,11 @@ small, .stCaption, [data-testid="stCaptionContainer"] {
 }
 .liqid-btn-secondary:hover { color: #460f28; }
 .liqid-btn-primary {
-  font-size: 0.8rem; font-weight: 500; background: #232425; color: #fff;
-  padding: 0.5rem 1.25rem; border-radius: 2px; text-decoration: none;
+  font-size: 0.8rem; font-weight: 500; background: #460f28; color: #fff !important;
+  padding: 0.5rem 1.25rem; border-radius: 2px; text-decoration: none !important;
   transition: background 0.25s ease;
 }
-.liqid-btn-primary:hover { background: #460f28; }
+.liqid-btn-primary:hover { background: #6b1a3d; }
 
 /* ─── Announcement bar (below navbar) ────────────────────────────────────── */
 .liqid-bar {
@@ -274,7 +274,7 @@ DEMO_PERSONAS = {
         "holding_names": "SAP SE 28% · NVIDIA Corp 18% · Bitcoin via Coinbase 12% · iShares MSCI World 15% · Barvermögen DKB 27%",
         "sophistication": "HIGH",
         "wealth_tier": "HNW",
-        "risk_inferred": "Aggressive",
+        "risk_inferred": "Ambitioniert",
     },
     "Sabine M.": {
         "subtitle": "Chefärztin · €380K · Konservativ, ETF-fokussiert",
@@ -294,7 +294,7 @@ DEMO_PERSONAS = {
         "holding_names": "iShares MSCI World ETF 60% · iShares EM IMI ETF 20% · Tagesgeld Scalable Capital 20%",
         "sophistication": "LOW",
         "wealth_tier": "EMERGING_HNW",
-        "risk_inferred": "Aggressive",
+        "risk_inferred": "Ambitioniert",
     },
 }
 
@@ -302,17 +302,17 @@ BENCHMARKS = {
     "EMERGING_HNW": {
         "Conservative": {"Aktien": 30, "Anleihen": 40, "Alternatives": 12, "Liquidität": 18},
         "Balanced":     {"Aktien": 52, "Anleihen": 25, "Alternatives": 15, "Liquidität": 8},
-        "Aggressive":   {"Aktien": 70, "Anleihen": 8,  "Alternatives": 15, "Liquidität": 7},
+        "Ambitioniert":   {"Aktien": 70, "Anleihen": 8,  "Alternatives": 15, "Liquidität": 7},
     },
     "HNW": {
         "Conservative": {"Aktien": 25, "Anleihen": 30, "Alternatives": 35, "Liquidität": 10},
         "Balanced":     {"Aktien": 45, "Anleihen": 15, "Alternatives": 35, "Liquidität": 5},
-        "Aggressive":   {"Aktien": 58, "Anleihen": 5,  "Alternatives": 33, "Liquidität": 4},
+        "Ambitioniert":   {"Aktien": 58, "Anleihen": 5,  "Alternatives": 33, "Liquidität": 4},
     },
     "UHNW": {
         "Conservative": {"Aktien": 20, "Anleihen": 20, "Alternatives": 50, "Liquidität": 10},
         "Balanced":     {"Aktien": 38, "Anleihen": 10, "Alternatives": 48, "Liquidität": 4},
-        "Aggressive":   {"Aktien": 50, "Anleihen": 3,  "Alternatives": 44, "Liquidität": 3},
+        "Ambitioniert":   {"Aktien": 50, "Anleihen": 3,  "Alternatives": 44, "Liquidität": 3},
     },
 }
 
@@ -377,22 +377,18 @@ def build_narrative_prompt(portfolio: dict, gap_df: pd.DataFrame) -> str:
             )
     observations = "\n".join(obs_lines) or "Portfolio weitgehend im Zielbereich."
 
-    return f"""Du bist Senior Wealth Advisor bei LIQID, einer digitalen Privatbank für vermögende Anleger im DACH-Raum.
+    return f"""Du bist Senior Wealth Advisor bei LIQID.
 
-Schreibe eine personalisierte Portfolio-Gap-Analyse auf Deutsch für einen Kunden mit folgendem Profil:
+Schreibe eine Portfolio-Gap-Analyse auf Deutsch. Kurz, direkt, auf den Punkt — wie ein erfahrener Advisor der keine Zeit verschwendet.
 
-Positionen: {portfolio["holding_names"]}
-Geschätzter Portfoliowert: {format_value(portfolio["estimated_value"])}
-Vermögenstier: {portfolio["wealth_tier"]}
-Risikoprofil: {portfolio["risk_inferred"]}
-Sophistication: {portfolio["sophistication"]}
+Portfolio: {portfolio["holding_names"]}
+Wert: {format_value(portfolio["estimated_value"])}
 
-Gap-Analyse vs. Peer-Benchmark ({portfolio["wealth_tier"]}, {portfolio["risk_inferred"]}):
+Gap vs. Vergleichsgruppe:
 {observations}
 
-Schreibe genau 3 prägnante Absätze:
-1. Was der Kunde richtig macht — ehrlich, nicht schmeichelhaft
-2. Den bedeutendsten Gap vs. Peers. Falls Alternatives untergewichtet: erkläre dass institutionelle Investoren und Private-Bank-Kunden diesen Zugang systematisch nutzen, während er Retailanlegern typischerweise verschlossen bleibt.
-3. Was die Schließung dieses Gaps langfristig für die Vermögensentwicklung bedeuten könnte — konkret
+Schreibe genau 2 Sätze:
+1. Der wichtigste Gap — was fehlt konkret und warum ist das relevant.
+2. Was institutionelle Anleger dieser Größenordnung anders machen — und was das langfristig bedeutet.
 
-Ton: sophisticated, respektvoll, direkt. Kein Markdown, keine Aufzählungszeichen. Kein namentlicher Hinweis auf LIQID."""
+Regeln: Kein "HNW", kein "UHNW", keine internen Begriffe. Kein Markdown. Keine Aufzählungen. Keine Floskeln. Kein LIQID erwähnen. Direkt, präzise, respektvoll."""

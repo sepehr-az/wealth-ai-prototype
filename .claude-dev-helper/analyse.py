@@ -73,6 +73,45 @@ st.markdown("""
   font-size: 0.875rem; color: #555; line-height: 1.6; margin-bottom: 0;
 }
 
+/* ─── Card-style radio questions (LIQID style) ────────────────────────────── */
+.pref-q-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.45rem; font-weight: 700; color: #1a1a1a;
+  margin-bottom: 0.35rem; line-height: 1.25;
+}
+.pref-q-sub { font-size: 0.8rem; color: #999; margin-bottom: 0.9rem; }
+
+div[data-testid="stRadio"] > div { gap: 0.4rem !important; }
+div[data-testid="stRadio"] > label { display: none !important; }
+div[data-testid="stRadio"] label {
+  display: flex !important; align-items: center !important;
+  justify-content: space-between !important;
+  padding: 0.95rem 1.1rem !important;
+  border: 1px solid #e0ddd8 !important; border-radius: 10px !important;
+  background: #fff !important; cursor: pointer !important;
+  width: 100% !important; margin: 0 !important;
+  transition: border-color 0.15s, background 0.15s !important;
+}
+div[data-testid="stRadio"] label:hover {
+  border-color: #460f28 !important; background: #fdf8f7 !important;
+}
+div[data-testid="stRadio"] label > div:first-child { display: none !important; }
+div[data-testid="stRadio"] label > div:last-child p {
+  font-size: 0.95rem !important; color: #1a1a1a !important; margin: 0 !important;
+}
+div[data-testid="stRadio"] label::after {
+  content: "›" !important; font-size: 1.4rem !important;
+  color: #ccc !important; line-height: 1 !important; flex-shrink: 0;
+}
+div[data-testid="stRadio"] label:has(input:checked) {
+  border-color: #460f28 !important; background: #fdf8f7 !important;
+}
+div[data-testid="stRadio"] label:has(input:checked)::after { color: #460f28 !important; }
+div[data-testid="stRadio"] label:has(input:checked) > div:last-child p {
+  font-weight: 600 !important; color: #460f28 !important;
+}
+
+
 /* ─── Blurred proposal ────────────────────────────────────────────────────── */
 .proposal-blurred {
   filter: blur(6px);
@@ -140,6 +179,7 @@ _defaults = {
     "prefs_submitted": False,
     "proposal": "",
     "proposal_unlocked": False,
+    "show_table": False,
 }
 for k, v in _defaults.items():
     if k not in st.session_state:
@@ -209,7 +249,7 @@ Antworte NUR mit gültigem JSON (kein Markdown, keine Erklärungen):
   "holding_names": "<kommaseparierte Liste sichtbarer Positionen mit ca. %-Anteil>",
   "sophistication": "<LOW|MEDIUM|HIGH>",
   "wealth_tier": "<EMERGING_HNW|HNW|UHNW>",
-  "risk_inferred": "<Conservative|Balanced|Aggressive>"
+  "risk_inferred": "<Conservative|Balanced|Ambitioniert>"
 }
 
 Sophistication: HIGH = Alternatives/Einzelaktien-Mix | MEDIUM = ETFs+Aktien od. ETFs+Anleihen | LOW = nur ETFs od. Cash
@@ -301,9 +341,7 @@ Holdings müssen sich zu 100 addieren. Fehlende Kategorien → 0."""
         st.markdown(f"""
         <div class="liqid-section-label">Portfolio-Analyse · {source_label}</div>
         <div class="liqid-section-title">
-          {format_value(portfolio["estimated_value"])} &nbsp;·&nbsp;
-          {portfolio.get("risk_inferred","—")} &nbsp;·&nbsp;
-          Benchmark: {portfolio.get("wealth_tier","—")}-Peers
+          {format_value(portfolio["estimated_value"])} &nbsp;·&nbsp; Peer-Vergleich
         </div>
         <p class="liqid-section-sub">{portfolio["holding_names"]}</p>
         """, unsafe_allow_html=True)
@@ -330,7 +368,11 @@ Holdings müssen sich zu 100 addieren. Fehlende Kategorien → 0."""
         cards_html += "</div>"
         st.markdown(cards_html, unsafe_allow_html=True)
 
-        with st.expander("Detailtabelle anzeigen"):
+        toggle_label = "Detailtabelle ausblenden ↑" if st.session_state.show_table else "Detailtabelle anzeigen ↓"
+        if st.button(toggle_label, key="toggle_table"):
+            st.session_state.show_table = not st.session_state.show_table
+            st.rerun()
+        if st.session_state.show_table:
             styled = (
                 gap_df.style
                 .map(
@@ -391,27 +433,22 @@ Holdings müssen sich zu 100 addieren. Fehlende Kategorien → 0."""
                 </div>
                 """, unsafe_allow_html=True)
 
+                anlageziel = st.pills(
+                    "Was möchten Sie erreichen?",
+                    options=["Vermögen ausbauen", "Vor Inflation schützen", "Kurzfristig anlegen"],
+                    selection_mode="single",
+                    key="pref_anlageziel",
+                )
                 zeithorizont = st.pills(
-                    "Zeithorizont",
-                    options=["< 3 Jahre", "3–7 Jahre", "7+ Jahre"],
+                    "Wie lange möchten Sie anlegen?",
+                    options=["Mehr als 10 Jahre", "5–10 Jahre", "3–5 Jahre", "Unter 3 Jahre"],
                     selection_mode="single",
                     key="pref_zeithorizont",
                 )
-                risikobereitschaft = st.pills(
-                    "Risikobereitschaft",
-                    options=["Sicherheitsorientiert", "Ausgewogen", "Renditestark"],
-                    selection_mode="single",
-                    key="pref_risiko",
-                )
-                liquiditaet = st.pills(
-                    "Liquiditätsbedarf",
-                    options=["Hohe Liquidität", "Flexibel", "Langfristig bindbar"],
-                    selection_mode="single",
-                    key="pref_liquiditaet",
-                )
 
-                all_selected = all([zeithorizont, risikobereitschaft, liquiditaet])
+                all_selected = all([anlageziel, zeithorizont])
 
+                st.markdown("<br>", unsafe_allow_html=True)
                 if st.button(
                     "Meine Strategie generieren →",
                     type="primary",
@@ -419,15 +456,14 @@ Holdings müssen sich zu 100 addieren. Fehlende Kategorien → 0."""
                     use_container_width=True,
                 ):
                     st.session_state.investment_prefs = {
+                        "anlageziel": anlageziel,
                         "zeithorizont": zeithorizont,
-                        "risiko": risikobereitschaft,
-                        "liquiditaet": liquiditaet,
                     }
                     st.session_state.prefs_submitted = True
                     st.rerun()
 
                 if not all_selected:
-                    st.caption("Bitte alle drei Felder auswählen, um Ihre Strategie zu generieren.")
+                    st.caption("Bitte alle drei Fragen beantworten, um Ihre Strategie zu generieren.")
 
             else:
                 # ── Generate proposal if not yet done ─────────────────────────
@@ -449,9 +485,8 @@ AKTUELLES PORTFOLIO:
 - Risikoprofil: {risk}
 
 ANLAGEINTERESSEN DES KUNDEN:
+- Anlageziel: {prefs.get("anlageziel", "—")}
 - Zeithorizont: {prefs.get("zeithorizont", "—")}
-- Risikobereitschaft: {prefs.get("risiko", "—")}
-- Liquiditätsbedarf: {prefs.get("liquiditaet", "—")}
 
 Schreibe einen strukturierten Vorschlag mit diesen 4 Abschnitten:
 
@@ -526,7 +561,7 @@ Schreibe professionell, präzise, auf dem Niveau einer Privatbank. Keine Floskel
                         with st.form("unlock_form"):
                             uc1, uc2 = st.columns(2)
                             with uc1:
-                                unlock_name = st.text_input("Ihr Name *", placeholder="Dr. Max Mustermann")
+                                unlock_name = st.text_input("Ihr Name *", placeholder="Max Mustermann")
                             with uc2:
                                 unlock_email = st.text_input("E-Mail-Adresse *", placeholder="name@example.com")
                             unlock_phone = st.text_input("Telefon (optional)", placeholder="+49 30 …")
@@ -631,9 +666,8 @@ with col_funnel:
                 st.markdown("---")
                 prefs = st.session_state.investment_prefs
                 st.caption("**Anlageinteressen**")
+                st.caption(f"🎯 {prefs.get('anlageziel','—')}")
                 st.caption(f"⏱ {prefs.get('zeithorizont','—')}")
-                st.caption(f"⚡ {prefs.get('risiko','—')}")
-                st.caption(f"💧 {prefs.get('liquiditaet','—')}")
 
             gap_df = st.session_state.gap_df
             if gap_df is not None:
