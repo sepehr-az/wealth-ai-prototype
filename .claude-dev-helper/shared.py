@@ -318,7 +318,9 @@ BENCHMARKS = {
 
 
 # ── Shared helpers ────────────────────────────────────────────────────────────
-def compute_cta_path(sophistication: str, wealth_tier: str) -> str:
+def compute_cta_path(sophistication: str, wealth_tier: str, estimated_value: int = 0) -> str:
+    if estimated_value < 20_000:
+        return "nurture"
     if sophistication == "HIGH" or wealth_tier in ("HNW", "UHNW"):
         return "rm"
     return "nurture"
@@ -377,18 +379,22 @@ def build_narrative_prompt(portfolio: dict, gap_df: pd.DataFrame) -> str:
             )
     observations = "\n".join(obs_lines) or "Portfolio weitgehend im Zielbereich."
 
-    return f"""Du bist Senior Wealth Advisor bei LIQID.
-
-Schreibe eine Portfolio-Gap-Analyse auf Deutsch. Kurz, direkt, auf den Punkt — wie ein erfahrener Advisor der keine Zeit verschwendet.
+    return f"""Du bist ein Finanzinformationssystem. Du erstellst ausschließlich sachliche, informatorische Portfoliobeobachtungen — keine Anlageberatung, keine persönlichen Empfehlungen.
 
 Portfolio: {portfolio["holding_names"]}
 Wert: {format_value(portfolio["estimated_value"])}
 
-Gap vs. Vergleichsgruppe:
+Allokationsvergleich mit einem standardisierten Benchmark:
 {observations}
 
-Schreibe genau 2 Sätze:
-1. Der wichtigste Gap — was fehlt konkret und warum ist das relevant.
-2. Was institutionelle Anleger dieser Größenordnung anders machen — und was das langfristig bedeutet.
+Schreibe genau 2 sachliche Sätze auf Deutsch:
+1. Beschreibe den auffälligsten Allokationsunterschied rein deskriptiv — was ist, nicht was getan werden sollte.
+2. Erkläre neutral, wie vergleichbare Anlegergruppen diese Assetklasse im Durchschnitt gewichten — ohne Wertung oder Handlungsempfehlung.
 
-Regeln: Kein "HNW", kein "UHNW", keine internen Begriffe. Kein Markdown. Keine Aufzählungen. Keine Floskeln. Kein LIQID erwähnen. Direkt, präzise, respektvoll."""
+Strikte Regeln:
+- Keine Formulierungen wie "Sie sollten", "wir empfehlen", "es empfiehlt sich", "wechseln Sie"
+- Keine Aussagen über zukünftige Renditen oder Wertentwicklung
+- Kein Bezug auf LIQID, keine Produktnennungen
+- Kein "HNW", "UHNW" oder interne Begriffe
+- Kein Markdown, keine Aufzählungen
+- Rein beschreibend und informatorisch — Spiegel, kein Wegweiser"""

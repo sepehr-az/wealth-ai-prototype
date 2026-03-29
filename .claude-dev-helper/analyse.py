@@ -205,8 +205,11 @@ with col_main:
             Investoren Ihrer Vermögensklasse.
           </p>
           <p class="analyse-hero-disclaimer">
-            <strong>MiFID II:</strong> Dies ist keine Anlageberatung. Alle Inhalte dienen
-            ausschließlich zu Informationszwecken.
+            <strong>Hinweis:</strong> Diese Anwendung dient ausschließlich zu Informations-
+            und Bildungszwecken. Die Inhalte stellen keine Anlageberatung, keine persönliche
+            Empfehlung und kein Angebot zum Kauf oder Verkauf von Finanzinstrumenten dar
+            (MiFID II Art. 4(1)(4)). Hochgeladene Daten werden nicht gespeichert und
+            ausschließlich zur einmaligen Analyse verwendet (DSGVO Art. 6).
           </p>
         </div>
         """, unsafe_allow_html=True)
@@ -332,6 +335,7 @@ Holdings müssen sich zu 100 addieren. Fehlende Kategorien → 0."""
             st.session_state.cta_path = compute_cta_path(
                 portfolio.get("sophistication", "MEDIUM"),
                 portfolio.get("wealth_tier", "EMERGING_HNW"),
+                portfolio.get("estimated_value", 0),
             )
 
         gap_df = st.session_state.gap_df
@@ -425,10 +429,11 @@ Holdings müssen sich zu 100 addieren. Fehlende Kategorien → 0."""
                 st.markdown("""
                 <div class="pref-section">
                   <div class="pref-section-eyebrow">Schritt 2 von 3</div>
-                  <div class="pref-section-title">Ihre Anlagestrategie</div>
+                  <div class="pref-section-title">Illustrative Musterallokation</div>
                   <p class="pref-section-sub">
-                    Teilen Sie uns Ihre Präferenzen mit — wir generieren einen
-                    auf Sie zugeschnittenen LIQID-Portfoliovorschlag.
+                    Wählen Sie Ihre Präferenzen — wir zeigen Ihnen, wie eine
+                    beispielhafte Allokation für dieses Profil aussehen könnte.
+                    Dies ist keine Anlageberatung.
                   </p>
                 </div>
                 """, unsafe_allow_html=True)
@@ -474,37 +479,33 @@ Holdings müssen sich zu 100 addieren. Fehlende Kategorien → 0."""
                     risk = portfolio.get("risk_inferred", "Balanced")
                     val = format_value(portfolio.get("estimated_value", 0))
 
-                    proposal_prompt = f"""Du bist ein Senior Wealth Advisor bei LIQID, Deutschlands führender digitaler Vermögensverwaltung.
+                    proposal_prompt = f"""Du erstellst eine rein informatorische, illustrative Musterallokation zu Bildungszwecken — keine Anlageberatung, keine persönliche Empfehlung im Sinne von MiFID II.
 
-Erstelle einen personalisierten Portfoliovorschlag auf Deutsch basierend auf folgenden Daten:
-
-AKTUELLES PORTFOLIO:
-- Gesamtwert: {val}
-- Vermögenstier: {wt}
+EINGABEDATEN (nur zur Kontextualisierung der Illustration):
+- Portfoliogröße: {val}
 - Aktuelle Allokation: {json.dumps(holdings, ensure_ascii=False)}
-- Risikoprofil: {risk}
-
-ANLAGEINTERESSEN DES KUNDEN:
 - Anlageziel: {prefs.get("anlageziel", "—")}
 - Zeithorizont: {prefs.get("zeithorizont", "—")}
 
-Schreibe einen strukturierten Vorschlag mit diesen 4 Abschnitten:
+Erstelle eine illustrative Beispielallokation auf Deutsch mit diesen 3 Abschnitten:
 
-**LIQID-Strategie: [passender Strategiename]**
+**Illustrative Musterallokation: [sachlicher Strategiename ohne Versprechen]**
 
-**Vorgeschlagene Zielallokation:**
-Nenne konkrete Prozentzahlen für Aktien, Anleihen, Alternatives, Liquidität (zusammen 100%).
+**Beispielhafte Zielgewichtung:**
+Konkrete Prozentzahlen für Aktien, Anleihen, Alternatives, Liquidität (zusammen 100%). Formuliere als "Ein Anleger mit diesem Profil könnte beispielsweise..." — nicht als persönliche Empfehlung.
 
-**Warum diese Strategie für Sie:**
-2–3 Sätze, die erklären, warum diese Allokation zu den Präferenzen passt. Sprich die Person direkt an (Sie-Form). Hebe den Alternatives-Vorteil hervor (LIQID hat Zugang zu Private Equity, Private Credit, Infrastructure, die Retail-Investoren normalerweise nicht zugänglich sind).
+**Hintergrund zur Allokationslogik:**
+2 Sätze: Erkläre neutral, welche Überlegungen hinter dieser Gewichtung stehen. Verweis auf Assetklassen wie Private Equity oder Private Credit als Diversifikationsbaustein, den institutionelle Anleger historisch nutzen — ohne Renditeversprechen oder Zukunftsaussagen.
 
-**Erwartete Auswirkungen:**
-Vergleich zur aktuellen Allokation — was verbessert sich konkret? Nenne erwartete Renditebereich (z.B. 6–9% p.a.) und Risikoreduktion falls relevant.
+**Hinweis:**
+Schreibe einen kurzen Standard-Disclaimer: Diese Darstellung dient ausschließlich zu Informationszwecken und stellt keine Anlageberatung, keine persönliche Empfehlung und kein Angebot zum Kauf oder Verkauf von Finanzinstrumenten dar. Vergangene Entwicklungen sind kein verlässlicher Indikator für zukünftige Ergebnisse.
 
-**Nächste Schritte mit LIQID:**
-1 kurzer Abschnitt mit 2 konkreten nächsten Schritten (Discovery Call + Strategie-Setup).
-
-Schreibe professionell, präzise, auf dem Niveau einer Privatbank. Keine Floskeln. Kein Disclaimer."""
+Strikte Regeln:
+- Keine Formulierungen: "Sie sollten", "wir empfehlen", "für Sie geeignet", "Ihr Portfolio"
+- Keine konkreten Renditeprognosen oder Prozentsätze für erwartete Erträge
+- Kein Vergleich mit LIQID-Performance oder anderen Kundendaten
+- Neutral, sachlich, illustrativ — keine Verkaufssprache
+- Kein Markdown außer den drei Abschnittsüberschriften mit **"""
 
                     try:
                         proposal_ph = st.empty()
@@ -537,7 +538,7 @@ Schreibe professionell, präzise, auf dem Niveau einer Privatbank. Keine Floskel
                     st.markdown(f"""
                     <div class="{blur_class}">
                       <div class="proposal-content">
-                        <div class="proposal-heading">Ihr persönlicher LIQID-Portfoliovorschlag</div>
+                        <div class="proposal-heading">Illustrative Musterallokation — nicht personalisierte Anlageberatung</div>
                         {st.session_state.proposal.replace(chr(10), "<br>")}
                       </div>
                     </div>
@@ -548,11 +549,11 @@ Schreibe professionell, präzise, auf dem Niveau einer Privatbank. Keine Floskel
                         st.markdown("""
                         <div class="unlock-card">
                           <div class="unlock-icon">🔒</div>
-                          <div class="unlock-title">Ihr Vorschlag ist bereit</div>
+                          <div class="unlock-title">Ihre Musterallokation ist bereit</div>
                           <p class="unlock-sub">
-                            Hinterlassen Sie Ihre Kontaktdaten, um den vollständigen
-                            Portfoliovorschlag zu erhalten — und optional ein Erstgespräch
-                            mit einem LIQID Senior Advisor zu vereinbaren.
+                            Hinterlassen Sie Ihre Kontaktdaten, um die vollständige
+                            illustrative Allokation zu sehen — und optional ein
+                            unverbindliches Erstgespräch zu vereinbaren.
                           </p>
                         </div>
                         """, unsafe_allow_html=True)
